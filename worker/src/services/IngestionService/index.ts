@@ -914,6 +914,20 @@ export class IngestionService {
       finalCostDetails.total = finalTotalCost;
     }
 
+    // Track budget spending if cost is calculated
+    if (finalTotalCost && finalTotalCost > 0) {
+      this.trackBudgetSpending({
+        projectId: observationRecord.project_id,
+        modelName:
+          observationRecord.model || observationRecord.provided_model_name,
+        cost: finalTotalCost,
+        timestamp: observationRecord.start_time || new Date(),
+      }).catch((error) => {
+        // Don't fail ingestion if budget tracking fails
+        console.warn("Budget tracking failed:", error);
+      });
+    }
+
     return {
       cost_details: finalCostDetails,
       total_cost: finalTotalCost,
@@ -1247,6 +1261,43 @@ export class IngestionService {
 
   private getMillisecondTimestamp(timestamp?: string | null): number {
     return timestamp ? new Date(timestamp).getTime() : Date.now();
+  }
+
+  /**
+   * Track budget spending for cost analysis
+   */
+  private async trackBudgetSpending(params: {
+    projectId: string;
+    modelName: string | null | undefined;
+    cost: number;
+    timestamp: Date;
+  }): Promise<void> {
+    const { projectId, modelName, cost, timestamp } = params;
+
+    if (!modelName || !projectId) {
+      return;
+    }
+
+    try {
+      // Import BudgetService dynamically to avoid circular dependencies
+      const { BudgetService } = await import(
+        "@langfuse/shared/src/server/services/BudgetService"
+      );
+      const budgetService = new BudgetService();
+
+      await budgetService.updateBudgetSpend({
+        projectId,
+        modelName,
+        additionalCost: cost,
+        timestamp,
+      });
+    } catch (error) {
+      // Log error but don't fail ingestion
+      console.warn(
+        `Failed to track budget spending for project ${projectId}, model ${modelName}:`,
+        error,
+      );
+    }
   }
 }
 

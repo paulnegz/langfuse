@@ -5,13 +5,24 @@ import { z } from "zod/v4";
 export enum TriggerEventSource {
   // eslint-disable-next-line no-unused-vars
   Prompt = "prompt",
+  // eslint-disable-next-line no-unused-vars
+  Budget = "budget",
 }
 
-export const EventActionSchema = z.enum(["created", "updated", "deleted"]);
+export const EventActionSchema = z.enum([
+  "created",
+  "updated",
+  "deleted",
+  "threshold_reached",
+  "budget_exceeded",
+]);
 
 export type TriggerEventAction = z.infer<typeof EventActionSchema>;
 
-export const TriggerEventSourceSchema = z.enum([TriggerEventSource.Prompt]);
+export const TriggerEventSourceSchema = z.enum([
+  TriggerEventSource.Prompt,
+  TriggerEventSource.Budget,
+]);
 
 export type TriggerDomain = Omit<
   Trigger,

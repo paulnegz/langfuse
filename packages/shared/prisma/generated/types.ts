@@ -149,6 +149,14 @@ export const ActionExecutionStatus = {
 } as const;
 export type ActionExecutionStatus =
   (typeof ActionExecutionStatus)[keyof typeof ActionExecutionStatus];
+export const BudgetPeriod = {
+  DAILY: "DAILY",
+  WEEKLY: "WEEKLY",
+  MONTHLY: "MONTHLY",
+  QUARTERLY: "QUARTERLY",
+  YEARLY: "YEARLY",
+} as const;
+export type BudgetPeriod = (typeof BudgetPeriod)[keyof typeof BudgetPeriod];
 export type Account = {
   id: string;
   user_id: string;
@@ -310,6 +318,31 @@ export type BlobStorageIntegration = {
   export_start_date: Timestamp | null;
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;
+};
+export type BudgetAlert = {
+  id: string;
+  created_at: Generated<Timestamp>;
+  budget_id: string;
+  threshold_percent: string;
+  triggered_at: Timestamp;
+  current_spend: string;
+  budget_amount: string;
+  period_start: Timestamp;
+  period_end: Timestamp;
+  webhook_sent: Generated<boolean>;
+  email_sent: Generated<boolean>;
+  projectId: string | null;
+};
+export type BudgetSpend = {
+  id: string;
+  created_at: Generated<Timestamp>;
+  budget_id: string;
+  period_start: Timestamp;
+  period_end: Timestamp;
+  model_name: string;
+  total_spend: string;
+  last_updated: Timestamp;
+  projectId: string | null;
 };
 export type Comment = {
   id: string;
@@ -559,6 +592,7 @@ export type LlmTool = {
   project_id: string;
   name: string;
   description: string;
+  model_id: string | null;
   parameters: unknown;
 };
 export type Media = {
@@ -600,6 +634,22 @@ export type Model = {
   unit: string | null;
   tokenizer_id: string | null;
   tokenizer_config: unknown | null;
+};
+export type ModelBudget = {
+  id: string;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+  project_id: string;
+  name: string;
+  model_pattern: string;
+  budget_amount: string;
+  budget_period: BudgetPeriod;
+  alert_thresholds: unknown;
+  start_date: Timestamp | null;
+  end_date: Timestamp | null;
+  is_active: Generated<boolean>;
+  enforce_limit: Generated<boolean>;
+  notify_users: string[];
 };
 export type ObservationMedia = {
   id: string;
@@ -794,6 +844,8 @@ export type DB = {
   batch_exports: BatchExport;
   billing_meter_backups: BillingMeterBackup;
   blob_storage_integrations: BlobStorageIntegration;
+  budget_alerts: BudgetAlert;
+  budget_spends: BudgetSpend;
   comments: Comment;
   cron_jobs: CronJobs;
   dashboard_widgets: DashboardWidget;
@@ -811,6 +863,7 @@ export type DB = {
   llm_tools: LlmTool;
   media: Media;
   membership_invitations: MembershipInvitation;
+  model_budgets: ModelBudget;
   models: Model;
   observation_media: ObservationMedia;
   observations: LegacyPrismaObservation;

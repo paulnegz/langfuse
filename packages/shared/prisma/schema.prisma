@@ -163,6 +163,9 @@ model Project {
   Automation             Automation[]
   DefaultLlmModel        DefaultLlmModel[]
   Price                  Price[]
+  ModelBudget            ModelBudget[]
+  BudgetAlert            BudgetAlert[]
+  BudgetSpend            BudgetSpend[]
 
   @@index([orgId])
   @@map("projects")
@@ -745,6 +748,7 @@ model Model {
   tokenizerId     String?   @map("tokenizer_id")
   tokenizerConfig Json?     @map("tokenizer_config")
   Price           Price[]
+  LlmTool         LlmTool[]
 
   @@unique([projectId, modelName, startDate, unit])
   @@index(modelName)
@@ -1123,19 +1127,92 @@ model LlmSchema {
 }
 
 model LlmTool {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  projectId   String   @map("project_id")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  modelId     String?  @map("model_id")
+  model       Model?   @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  parameters  Json
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("llm_tools")
+}
+
+model ModelBudget {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  projectId String   @map("project_id")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  projectId String  @map("project_id")
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String // User-friendly name like "GPT-4 Monthly Budget"
+  modelPattern    String       @map("model_pattern") // Regex pattern like "gpt-4.*" or "gemini.*"
+  budgetAmount    Decimal      @map("budget_amount") // Budget amount in USD
+  budgetPeriod    BudgetPeriod @map("budget_period") // monthly, weekly, daily
+  alertThresholds Json         @map("alert_thresholds") // [0.5, 0.75, 1.0] as percentages
 
-  name        String @map("name")
-  description String @map("description")
-  parameters  Json   @map("parameters") @db.Json
+  startDate DateTime? @map("start_date") // When budget period starts, null = immediately
+  endDate   DateTime? @map("end_date") // When budget expires, null = never
+  isActive  Boolean   @default(true) @map("is_active")
+
+  // Enforcement options
+  enforceLimit Boolean  @default(false) @map("enforce_limit") // Hard stop at 100%
+  notifyUsers  String[] @map("notify_users") // User IDs to notify
+
+  budgetAlerts BudgetAlert[]
+  budgetSpends BudgetSpend[]
 
   @@unique([projectId, name])
-  @@map("llm_tools")
+  @@index([projectId, isActive])
+  @@map("model_budgets")
+}
+
+model BudgetAlert {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now()) @map("created_at")
+  budgetId  String      @map("budget_id")
+  budget    ModelBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  thresholdPercent Decimal  @map("threshold_percent") // 0.5, 0.75, 1.0 etc
+  triggeredAt      DateTime @map("triggered_at")
+  currentSpend     Decimal  @map("current_spend")
+  budgetAmount     Decimal  @map("budget_amount")
+  periodStart      DateTime @map("period_start")
+  periodEnd        DateTime @map("period_end")
+
+  // Alert delivery tracking
+  webhookSent Boolean  @default(false) @map("webhook_sent")
+  emailSent   Boolean  @default(false) @map("email_sent")
+  Project     Project? @relation(fields: [projectId], references: [id])
+  projectId   String?
+
+  @@unique([budgetId, thresholdPercent, periodStart]) // Prevent duplicate alerts per threshold per period
+  @@index([budgetId, triggeredAt])
+  @@map("budget_alerts")
+}
+
+model BudgetSpend {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now()) @map("created_at")
+  budgetId  String      @map("budget_id")
+  budget    ModelBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  modelName   String   @map("model_name") // Actual model that was used
+  totalSpend  Decimal  @map("total_spend") // Cumulative spend for this model in this period
+  lastUpdated DateTime @map("last_updated")
+  Project     Project? @relation(fields: [projectId], references: [id])
+  projectId   String?
+
+  @@unique([budgetId, periodStart, modelName])
+  @@index([budgetId, periodStart])
+  @@map("budget_spends")
 }
 
 model Dashboard {
@@ -1337,4 +1414,12 @@ model AutomationExecution {
   @@index([actionId])
   @@index([projectId])
   @@map("automation_executions")
+}
+
+enum BudgetPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
 }

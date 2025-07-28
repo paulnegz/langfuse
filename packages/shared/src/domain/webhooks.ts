@@ -15,6 +15,14 @@ export const WebhookOutboundBaseSchema = z.object({
   action: EventActionSchema,
 });
 
+export const BudgetAlertWebhookBaseSchema = z.object({
+  id: z.string(),
+  timestamp: z.coerce.date(),
+  type: z.literal("budget-alert"),
+  apiVersion: z.literal("v1"),
+  action: z.enum(["threshold_reached", "budget_exceeded"]),
+});
+
 export const PromptWebhookOutboundSchema = z
   .object({
     prompt: z.object({
@@ -35,3 +43,26 @@ export const PromptWebhookOutboundSchema = z
   .and(WebhookOutboundBaseSchema);
 
 export type PromptWebhookOutput = z.infer<typeof PromptWebhookOutboundSchema>;
+
+export const BudgetAlertWebhookOutboundSchema = z
+  .object({
+    budgetAlert: z.object({
+      budgetId: z.string(),
+      budgetName: z.string(),
+      modelPattern: z.string(),
+      thresholdPercent: z.number(),
+      currentSpend: z.number(),
+      budgetAmount: z.number(),
+      percentUsed: z.number(),
+      periodStart: z.coerce.date(),
+      periodEnd: z.coerce.date(),
+      timeRemaining: z.number(),
+      projectedSpend: z.number().optional(),
+      alertLevel: z.enum(["warning", "critical", "exceeded"]),
+    }),
+  })
+  .and(BudgetAlertWebhookBaseSchema);
+
+export type BudgetAlertWebhookOutput = z.infer<
+  typeof BudgetAlertWebhookOutboundSchema
+>;
