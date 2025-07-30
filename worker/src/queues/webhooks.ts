@@ -7,6 +7,7 @@ import {
   JobConfigState,
   isSlackActionConfig,
   isWebhookAction,
+  WebhookActionConfigWithSecrets,
 } from "@langfuse/shared";
 import { decrypt, createSignatureHeader } from "@langfuse/shared/encryption";
 import { prisma } from "@langfuse/shared/src/db";
@@ -116,7 +117,7 @@ async function executeWebhookAction({
       );
     }
 
-    const webhookConfig = actionConfig.config;
+    const webhookConfig = actionConfig.config as WebhookActionConfigWithSecrets;
 
     // Validate and prepare webhook payload
     const validatedPayload = PromptWebhookOutboundSchema.safeParse({
@@ -144,10 +145,32 @@ async function executeWebhookAction({
     // Prepare headers with signature if secret exists
     const requestHeaders: Record<string, string> = {};
 
-    // Add webhook config headers first
+    // Add legacy headers first (simple key-value pairs)
+    if (webhookConfig.headers) {
+      for (const [key, value] of Object.entries(webhookConfig.headers)) {
+        requestHeaders[key] = value;
+      }
+    }
+
+    // Add new request headers (with secret/value structure)
     if (webhookConfig.requestHeaders) {
-      for (const [key, value] of Object.entries(webhookConfig.requestHeaders)) {
-        requestHeaders[key] = value.value;
+      for (const [key, headerConfig] of Object.entries(webhookConfig.requestHeaders)) {
+        try {
+          if (headerConfig.secret) {
+            // Decrypt secret headers
+            const decryptedValue = decrypt(headerConfig.value);
+            requestHeaders[key] = decryptedValue;
+          } else {
+            // Use public headers as-is
+            requestHeaders[key] = headerConfig.value;
+          }
+        } catch (error) {
+          logger.warn(
+            `Failed to decrypt header ${key}, skipping`,
+            error,
+          );
+          // Skip this header if decryption fails
+        }
       }
     }
 
