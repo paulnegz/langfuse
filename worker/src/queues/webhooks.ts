@@ -154,7 +154,9 @@ async function executeWebhookAction({
 
     // Add new request headers (with secret/value structure)
     if (webhookConfig.requestHeaders) {
-      for (const [key, headerConfig] of Object.entries(webhookConfig.requestHeaders)) {
+      for (const [key, headerConfig] of Object.entries(
+        webhookConfig.requestHeaders,
+      )) {
         try {
           if (headerConfig.secret) {
             // Decrypt secret headers
@@ -165,10 +167,7 @@ async function executeWebhookAction({
             requestHeaders[key] = headerConfig.value;
           }
         } catch (error) {
-          logger.warn(
-            `Failed to decrypt header ${key}, skipping`,
-            error,
-          );
+          logger.warn(`Failed to decrypt header ${key}, skipping`, error);
           // Skip this header if decryption fails
         }
       }
